@@ -47,15 +47,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <regex.h>
+#include <string.h>
+
 
 #define SOCKET_NAME "/tmp/ethlog"
 
-
-#define IFACE_MAX_COUNT 256
-#define IFACE_BUF_SIZE 128
-
-#define IP_MAX_COUNT 256
-#define IP_BUF_SIZE 16
 
 #define DATA_ERROR -1
 #define FLAG_START 1
@@ -64,32 +61,149 @@
 #define FLAG_SELECT 4
 #define FLAG_STAT 5
 
+
+bool check_regex(char *str, char *pattern) {
+    regex_t regex;
+    const int n_matches = 3;
+    regmatch_t match[n_matches];
+    int return_value = 1;
+    if (regcomp(&regex, pattern, REG_EXTENDED) == 0) {
+        return_value = regexec(&regex, str, n_matches, match, 0);
+    }
+    regfree(&regex);
+    return return_value == 0;
+}
+
+/***************** ip *******************/
+
+#define IP_MAX_COUNT 256
+#define IP_NAME_SIZE 16
+
+static char *ip_pattern = "^([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))."
+         "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))."
+         "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))."
+         "([0-9]|[1-9][0-9]|1([0-9][0-9])|2([0-4][0-9]|5[0-5]))$";
+
+struct iface_s;
+
 struct ip_s {
+    struct iface_s *parent;
     int size;
-    char ip_str[IP_BUF_SIZE];
+    char ip_str[IP_NAME_SIZE];
     int data_count;
 } typedef ip_t;
 
+ip_t construct_ip(char *ip_str, int data_count) {
+    ip_t ip;
+
+    if (strlen(ip_str) > IP_NAME_SIZE) {
+        fprintf(stderr, "IP name is overflowed\n");
+        exit(1);
+    }
+
+    if (!check_regex(ip_str, ip_pattern)) {
+        fprintf(stderr, "IP name is incorrect\n");
+        exit(1);
+    }
+
+    strcpy(ip.ip_str, ip_str);
+    ip.data_count = data_count;
+    return ip;
+}
+
+int ipcmp (const void *ip1, const void *ip2) {
+    return strcmp(((const ip_t *)ip1)->ip_str, ((const ip_t *)ip2)->ip_str);
+}
+
+/***************** ip *******************/
+
+/**************** iface *****************/
+
+#define IFACE_MAX_COUNT 64
+#define IFACE_NAME_SIZE 128
+
+struct ethlog_s;
+
 struct iface_s {
+    struct ethlog_s *parent;
     int ip_count;
-    char iface_str[IFACE_BUF_SIZE];
+    char iface_str[IFACE_NAME_SIZE];
     ip_t ip[IP_MAX_COUNT];
 } typedef iface_t;
 
+iface_t construct_iface(char *iface_str, int ip_count, ip_t ip[]) {
+    iface_t iface;
+    iface.parent = NULL;
+    iface.ip_count = ip_count;
+    if (strlen(iface_str) > IFACE_NAME_SIZE) {
+        fprintf(stderr, "IFACE name is overflowed\n");
+        exit(1);
+    }
+    strcpy(iface.iface_str, iface_str);
+    memcpy(iface.ip, ip, ip_count);
+    return iface;
+}
+
+iface_t copy_iface(iface_t *src_iface) {
+    iface_t iface;
+    iface.parent = src_iface->parent;
+    iface.ip_count = src_iface->ip_count;
+    strcpy(iface.iface_str, src_iface->iface_str);
+    memcpy(iface.ip, src_iface->ip, src_iface->ip_count);
+    return iface;
+}
+
+void push_ip(iface_t *iface, ip_t ip) {
+    ip.parent = iface;
+    iface->ip[++iface->ip_count - 1] = ip;
+    qsort(iface->ip, iface->ip_count, sizeof(ip_t), ipcmp);
+}
+
+ip_t *search_ip(ip_t *arr, int l, int r, char *ip_str) {
+    if (r >= l) {
+        int mid = l + (r - l) / 2;
+
+        if (strcmp(arr[mid].ip_str, ip_str) == 0)
+            return &arr[mid];
+        if (strcmp(arr[mid].ip_str, ip_str) > 0)
+            return search_ip(arr, l, mid - 1, ip_str);
+  
+        return search_ip(arr, mid + 1, r, ip_str);
+    }
+    return NULL;
+}
+
+void print_ip_stat(ip_t *ip) {
+    if (ip)
+        printf("\tIP \"%s\": %d packet(s)\n", ip->ip_str, ip->data_count);
+}
+
+/**************** iface *****************/
+
+/*************** ethlog ****************/
 struct ethlog_s {
     int iface_count;
     int iface_current;
     iface_t iface[IFACE_MAX_COUNT];
+    ip_t *ip[IFACE_MAX_COUNT * IP_MAX_COUNT];
 } typedef ethlog_t;
 
-void serializer(ethlog_t *data) {
-    FILE *fd = fopen("/var/run/ethlog", "w");
-    fwrite(data, sizeof(ethlog_t), sizeof(ethlog_t), fd);
-    fclose(fd);
+ethlog_t construct_ethlog() {
+    ethlog_t ethlog;
+    ethlog.iface_count = 0;
+    ethlog.iface_current = -1;
+    return ethlog;
 }
 
-ethlog_t deserializer() {
-    
+void push_iface(ethlog_t *ethlog, iface_t iface) {
+    if (ethlog->iface_count + 1 > IFACE_MAX_COUNT) {
+        fprintf(stderr, "IFace buffer overflow\n");
+        exit(1);
+    }
+    iface.parent = ethlog;
+    ethlog->iface[++ethlog->iface_count - 1] = iface;
+    if (ethlog->iface_count != 0 && ethlog->iface_current == -1)
+        ethlog->iface_current = 0;
 }
 
 static int count_packet(iface_t *iface) {
@@ -102,11 +216,26 @@ static int count_packet(iface_t *iface) {
 
 void print_iface_stat(iface_t *iface) {
     printf("Common info of interface \"%s\":\n\n", iface->iface_str);
-    printf("\t IPs count -- %d;\n", iface->ip_count);
-    printf("\t Packets were received -- %d\n\n", count_packet(iface));
+    printf("\tIPs count: \t\t| %d\n", iface->ip_count);
+    printf("\tPackets were received:\t| %d\n\n", count_packet(iface));
+    printf("\t---------------------------\n\n");
     for (int i = 0; i < iface->ip_count; i++) {
-        printf("\tIP \"%s\": %d packet(s)", iface->ip[i].ip_str, iface->ip[i].data_count);
+        printf("\tIP \"%s\": %d packet(s)\n", iface->ip[i].ip_str, iface->ip[i].data_count);
     }
+    printf("\n=======================================\n\n");
+}
+
+/*************** ethlog ****************/
+
+
+void serializer(ethlog_t *data) {
+    FILE *fd = fopen("/var/run/ethlog", "w");
+    fwrite(data, sizeof(ethlog_t), sizeof(ethlog_t), fd);
+    fclose(fd);
+}
+
+ethlog_t deserializer() {
+    
 }
 
 struct message_t {
@@ -255,7 +384,13 @@ void send_message(int flag, char *arg) {
     
 }
 int main() {
-    iface_t iface;
+    ip_t a = construct_ip("255.255.255.255", 5);
+    ip_t b = construct_ip("127.0.0.1", 16);
+    printf("%s\n", a.ip_str);
+    iface_t iface = construct_iface("eth0", 0, NULL);
+    push_ip(&iface, a);
+    push_ip(&iface, b);
+
     print_iface_stat(&iface);
     return 0;
 }
