@@ -13,6 +13,7 @@ struct ethlog_s {
     int ip_count;
     iface_t iface[IFACE_MAX_COUNT];
     ip_t ip[IFACE_MAX_COUNT * IP_MAX_COUNT];
+    bool is_active;
 } typedef ethlog_t;
 
 ethlog_t construct_ethlog();
@@ -24,5 +25,9 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str);
 void serializer(ethlog_t *ethlog);
 
 ethlog_t *deserializer(ethlog_t *ethlog);
+
+int search_iface(iface_t *arr, int l, int r, char *iface_str);
+
+void find_print_iface(ethlog_t *ethlog, char *iface_str);
 
 #endif

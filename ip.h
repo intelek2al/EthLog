@@ -18,7 +18,7 @@ struct ip_s {
     struct iface_s *parent;
     int size;
     char ip_str[IP_NAME_SIZE];
-    int data_count;
+    size_t data_count;
 } typedef ip_t;
 
 ip_t construct_ip(char *ip_str, int data_count);

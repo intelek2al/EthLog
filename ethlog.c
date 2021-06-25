@@ -6,7 +6,12 @@ ethlog_t construct_ethlog() {
     ethlog.iface_count = 0;
     ethlog.ip_count = 0;
     ethlog.iface_current = -1;
+    ethlog.is_active = false;
     return ethlog;
+}
+
+int ifacecmp(const void *if1, const void *if2) {
+    return strcmp(((const iface_t *)if1)->iface_str, ((const iface_t *)if2)->iface_str);
 }
 
 iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
@@ -18,6 +23,7 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
     ethlog->iface[++ethlog->iface_count - 1] = iface;
     if (ethlog->iface_count != 0 && ethlog->iface_current == -1)
         ethlog->iface_current = 0;
+    qsort(ethlog->iface, ethlog->iface_count, sizeof(iface_t), ifacecmp);
     return &ethlog->iface[ethlog->iface_count - 1];
 }
 
@@ -44,7 +50,30 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str) {
     else {
         printf("IP does not exist!\n");
     }
+}
 
+int search_iface(iface_t *arr, int l, int r, char *iface_str) {
+    if (r >= l) {
+        int mid = l + (r - l) / 2;
+
+        if (strcmp(arr[mid].iface_str, iface_str) == 0)
+            return mid;
+        if (strcmp(arr[mid].iface_str, iface_str) > 0)
+            return search_iface(arr, l, mid - 1, iface_str);
+  
+        return search_iface(arr, mid + 1, r, iface_str);
+    }
+    return -1;
+}
+
+void find_print_iface(ethlog_t *ethlog, char *iface_str) {
+    int iface_idx = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, iface_str);
+    if (iface_idx != -1) {
+        print_iface_stat(&ethlog->iface[iface_idx]);
+    }
+    else {
+        printf("Interface does not exist!\n");
+    }
 }
 
 void serializer(ethlog_t *ethlog) {
@@ -64,13 +93,12 @@ void serializer(ethlog_t *ethlog) {
 ethlog_t *deserializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "rb");
     if (!fd) {
-        perror("ethlog");
-        fprintf(stderr, "Try with sudo\n");
-        exit(EXIT_FAILURE);
+        *ethlog = construct_ethlog();
+        return ethlog;
     }
-    if (fread(ethlog, sizeof(ethlog_t), 1, fd) != 1) {
-        perror("ethlog");
-        exit(EXIT_FAILURE);
+    int ret = fread(ethlog, sizeof(ethlog_t), 1, fd);
+    if (ret != 1) {
+        *ethlog = construct_ethlog();
     }
     fclose(fd);
     return ethlog;

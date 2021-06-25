@@ -24,5 +24,5 @@ int ipcmp (const void *ip1, const void *ip2) {
 
 void print_ip_stat(ip_t *ip) {
     if (ip)
-        printf("\tIP \"%s\": %d packet(s)\n", ip->ip_str, ip->data_count);
+        printf("\tIP \"%s\": %ld packet(s)\n", ip->ip_str, ip->data_count);
 }

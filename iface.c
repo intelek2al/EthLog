@@ -25,17 +25,10 @@ iface_t copy_iface(iface_t *src_iface) {
 
 void push_ip(iface_t *iface, ip_t ip) {
     ethlog_t *ethlog = iface->parent;
-    ip_t *same_ip = NULL;
 
     if (!ethlog)
         return;
     ip.parent = iface;
-    // same_ip = search_ip(ethlog->ip, 0, ethlog->ip_count - 1, ip.ip_str);
-    // if (same_ip != NULL) {
-    //     same_ip->data_count += ip.data_count;
-    //     iface->ip[++iface->ip_count - 1] = same_ip;
-    //     return;
-    // }
     ethlog->ip[++(ethlog->ip_count) - 1] = ip;
     iface->ip[++iface->ip_count - 1] = &(ethlog->ip[ethlog->ip_count - 1]);
     qsort(ethlog->ip, iface->ip_count, sizeof(ip_t), ipcmp);
