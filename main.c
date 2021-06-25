@@ -213,42 +213,42 @@ void send_message(int flag, char *arg) {
 }
 
 
-// int main() {
-//     ethlog_t ethlog = construct_ethlog();
-//     ip_t a = construct_ip("255.255.255.255", 5);
-//     ip_t a1 = construct_ip("255.255.255.255", 6);
-//     ip_t b = construct_ip("127.0.0.1", 16);
-//     ip_t b1 = construct_ip("127.0.0.1", 16);
-//     iface_t iface = construct_iface("eth0", 0, NULL, NULL);
-//     iface_t *iface1 = push_iface(&ethlog, iface);
+int main() {
+    ethlog_t ethlog = construct_ethlog();
+    ip_t a = construct_ip("255.255.255.255", 5);
+    ip_t a1 = construct_ip("255.255.255.255", 6);
+    ip_t b = construct_ip("127.0.0.1", 16);
+    ip_t b1 = construct_ip("127.0.0.1", 16);
+    iface_t iface = construct_iface("eth0", 0, NULL, NULL);
+    iface_t *iface1 = push_iface(&ethlog, iface);
 
-//     iface_t some_if = construct_iface("eth1", 0, NULL, NULL);
-//     iface_t *some_if2 = push_iface(&ethlog, some_if);
+    iface_t some_if = construct_iface("eth1", 0, NULL, NULL);
+    iface_t *some_if2 = push_iface(&ethlog, some_if);
 
-//     iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL);
-//     iface_t *some_if12 = push_iface(&ethlog, some_if1);
+    iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL);
+    iface_t *some_if12 = push_iface(&ethlog, some_if1);
 
-//     push_ip(iface1, a);
-//     push_ip(some_if2, a1);
-//     push_ip(iface1, b);
-//     push_ip(iface1, b1);
-//     push_ip(some_if12, a1);
+    push_ip(iface1, a);
+    push_ip(some_if2, a1);
+    push_ip(iface1, b);
+    push_ip(iface1, b1);
+    push_ip(some_if12, a1);
 
-//     serializer(&ethlog);
+    // serializer(&ethlog);
 
-//     ethlog_t ethlog2 = construct_ethlog();
-//     deserializer(&ethlog2);
+    ethlog_t ethlog2 = construct_ethlog();
+    deserializer(&ethlog2);
 
-//     for (int i = 0; i < ethlog2.ip_count; i++) {
-//         printf("%s: %ld\n", ethlog2.ip[i].ip_str, ethlog2.ip[i].data_count);
-//     }
+    for (int i = 0; i < ethlog2.ip_count; i++) {
+        printf("%s: %ld\n", ethlog2.ip[i].ip_str, ethlog2.ip[i].data_count);
+    }
 
-//     // // print_iface_stat(iface1);
-//     // // print_iface_stat(some_if2);
-//     // find_print_ip(&ethlog, "255.255.255.255");
+    // // print_iface_stat(iface1);
+    // // print_iface_stat(some_if2);
+    find_print_iface(&ethlog2, "eth0");
     
-//     return 0;
-// }
+    return 0;
+}
 
 
 
@@ -340,23 +340,23 @@ int daemon_server() {
     return EXIT_FAILURE;
 }
 
-int main(int argc, char **argv) {
-    int service = singleton_connect(SOCKET_NAME);
-    switch (service) {
-        case 0: { /* Daemon */
-            signal_action_handler();
-            return daemon_server();
-        }
-        case 1: { /* Client */
-            return client(argc, argv);
-        }
-        default:
-            cleanup();
-            return EXIT_FAILURE;
-    }
-    cleanup();
-    return EXIT_SUCCESS;
-}
+// int main(int argc, char **argv) {
+//     int service = singleton_connect(SOCKET_NAME);
+//     switch (service) {
+//         case 0: { /* Daemon */
+//             signal_action_handler();
+//             return daemon_server();
+//         }
+//         case 1: { /* Client */
+//             return client(argc, argv);
+//         }
+//         default:
+//             cleanup();
+//             return EXIT_FAILURE;
+//     }
+//     cleanup();
+//     return EXIT_SUCCESS;
+// }
 
 
 // //  ***************** EXTRA ****************
