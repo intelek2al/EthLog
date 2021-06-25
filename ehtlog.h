@@ -21,4 +21,8 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface);
 
 void find_print_ip(ethlog_t *ethlog, char *ip_str);
 
+void serializer(ethlog_t *ethlog);
+
+ethlog_t *deserializer(ethlog_t *ethlog);
+
 #endif

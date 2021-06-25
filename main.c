@@ -218,16 +218,6 @@ bool check_regex(char *str, char *pattern) {
 /*************** ethlog ****************/
 
 
-void serializer(ethlog_t *data) {
-    FILE *fd = fopen("/var/run/ethlog", "w");
-    fwrite(data, sizeof(ethlog_t), sizeof(ethlog_t), fd);
-    fclose(fd);
-}
-
-ethlog_t deserializer() {
-    
-}
-
 struct message_t {
     int fd;
     int flag;
@@ -394,13 +384,18 @@ int main() {
     push_ip(iface1, b1);
     push_ip(some_if12, a1);
 
-    // for (int i = 0; i < ethlog.ip_count; i++) {
-    //     printf("%s: %d\n", ethlog.ip[i].ip_str, ethlog.ip[i].data_count);
-    // }
+    serializer(&ethlog);
 
-    // print_iface_stat(iface1);
-    // print_iface_stat(some_if2);
-    find_print_ip(&ethlog, "255.255.255.255");
+    ethlog_t ethlog2 = construct_ethlog();
+    deserializer(&ethlog2);
+
+    for (int i = 0; i < ethlog2.ip_count; i++) {
+        printf("%s: %d\n", ethlog2.ip[i].ip_str, ethlog2.ip[i].data_count);
+    }
+
+    // // print_iface_stat(iface1);
+    // // print_iface_stat(some_if2);
+    // find_print_ip(&ethlog, "255.255.255.255");
     
     return 0;
 }

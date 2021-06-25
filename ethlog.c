@@ -46,3 +46,32 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str) {
     }
 
 }
+
+void serializer(ethlog_t *ethlog) {
+    FILE *fd = fopen("/var/run/ethlog.dat", "wb");
+    if (!fd) {
+        perror("ethlog");
+        fprintf(stderr, "Try with sudo\n");
+        exit(EXIT_FAILURE);
+    }
+    if (fwrite(ethlog, sizeof(ethlog_t), 1, fd) != 1) {
+        perror("ethlog");
+        exit(EXIT_FAILURE);
+    }
+    fclose(fd);
+}
+
+ethlog_t *deserializer(ethlog_t *ethlog) {
+    FILE *fd = fopen("/var/run/ethlog.dat", "rb");
+    if (!fd) {
+        perror("ethlog");
+        fprintf(stderr, "Try with sudo\n");
+        exit(EXIT_FAILURE);
+    }
+    if (fread(ethlog, sizeof(ethlog_t), 1, fd) != 1) {
+        perror("ethlog");
+        exit(EXIT_FAILURE);
+    }
+    fclose(fd);
+    return ethlog;
+}
