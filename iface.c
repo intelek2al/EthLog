@@ -59,7 +59,7 @@ static int count_packet(iface_t *iface) {
 void print_iface_stat(iface_t *iface) {
     printf("Common info of interface \"%s\":\n\n", iface->iface_str);
     printf("\tCount of IP: \t\t| %d\n", iface->ip_count);
-    printf("\tAll received packets:\t| %d\n\n", count_packet(iface));
+    printf("\tTotal received packets:\t| %d\n\n", count_packet(iface));
     printf("\t----------------------------------\n\n");
     for (int i = 0; i < iface->ip_count; i++) {
         print_ip_stat(iface->ip[i]);
