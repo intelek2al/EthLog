@@ -36,6 +36,13 @@
 // // }
 
 #include "ehtlog.h"
+#include <pthread.h>
+
+struct thread_pack_s {
+    pthread_t trd;
+    pthread_attr_t attr;
+    pthread_mutex_t mtx;
+} typedef thread_pack_t;
 
 
 #define SOCKET_NAME "/tmp/ethlog"
@@ -47,6 +54,7 @@
 #define FLAG_SHOW 3
 #define FLAG_SELECT 4
 #define FLAG_STAT 5
+#define FLAG_IFACES 6
 
 
 bool check_regex(char *str, char *pattern) {
@@ -71,7 +79,6 @@ struct message_s {
 static int socket_fd = -1;
 static bool isdaemon = false;
 static bool run = true;
-int test = 0;
 
 
 // void connect_to_client(int fd, char *name) {
@@ -104,8 +111,7 @@ int singleton_connect(const char *name) {
             socket_fd = tmpd;
             isdaemon = true;
             if (fork() != 0 ) {
-                printf("Pid: %d\n", getpid() + 1);
-                exit(0);
+                return singleton_connect(name);
             }
             umask(0);
             setsid();
@@ -157,8 +163,22 @@ int show_count(ethlog_t *ethlog, char *ip) {
     return 0;
 }
 
-int select_iface(ethlog_t *ethlog, char *ip) {
-    printf("select_iface");
+void *sniff_callback(void *data);
+void stop_sniff(ethlog_t *ethlog, thread_pack_t *thread);
+
+int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
+    stop_sniff(ethlog, thread);
+    char errbuf[100];
+
+    ethlog->iface_current = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, eth);
+    ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 0, errbuf);
+    if (ethlog->handler == NULL) 
+	{
+		fprintf(stderr, "Couldn't open device %s : %s\n" , eth , errbuf);
+		return 1;
+	}
+    pthread_create(&thread->trd, &thread->attr, sniff_callback, ethlog);
+
     return 0;
 }
 
@@ -167,21 +187,54 @@ int stat_iface(ethlog_t *ethlog, char *iface) {
     return 0;
 }
 
-void request_handler(ethlog_t *ethlog, message_t message) {
+void print_all_iface(ethlog_t *ethlog) {
+    if (ethlog->iface_count == 0) {
+        printf("ethlog: All interfaces are inavailable.");
+        return;
+    }
+    printf("Available interfaces:\n");
+    for (int i = 0; i < ethlog->iface_count; i++) {
+        printf("%d. %s", i + 1, ethlog->iface[i].iface_str);
+        if (ethlog->iface[i].description[0] != '\0')
+            printf(" (%s)", ethlog->iface[i].description);
+        printf("\n");
+    }
+    
+}
+
+void start_sniff(ethlog_t *ethlog, thread_pack_t *thread) {
+    pthread_mutex_lock(&thread->mtx);
+    ethlog->is_active = true;
+    pthread_mutex_unlock(&thread->mtx);
+    pthread_create(&thread->trd, &thread->attr, sniff_callback, ethlog);
+}
+
+void stop_sniff(ethlog_t *ethlog, thread_pack_t *thread) {
+    pthread_mutex_lock(&thread->mtx);
+    ethlog->is_active = false;
+    pthread_mutex_unlock(&thread->mtx);
+    pthread_join(thread->trd, NULL);
+}
+
+void request_handler(ethlog_t *ethlog, message_t message, thread_pack_t *thread) {
     switch (message.flag) {   
         case FLAG_START:
-            ethlog->is_active = true;
+            start_sniff(ethlog, thread);
             break;
         case FLAG_STOP:
-            ethlog->is_active = false;
+            stop_sniff(ethlog, thread);
             break;
         case FLAG_SHOW:
             show_count(ethlog, message.buf);
+            break;
         case FLAG_SELECT:
-            select_iface(ethlog, message.buf);
+            select_iface(ethlog, message.buf, thread);
             break;
         case FLAG_STAT:
             stat_iface(ethlog, message.buf);
+            break;
+        case FLAG_IFACES:
+            print_all_iface(ethlog);
             break;
         case FLAG_EXIT:
             run = false;
@@ -291,8 +344,55 @@ void sniffing(ethlog_t *ethlog) {
     serializer(ethlog);
 }
 
+#include<sys/socket.h>
+#include<arpa/inet.h> // for inet_ntoa()
+#include<net/ethernet.h>
+#include<netinet/ip_icmp.h>	//Provides declarations for icmp header
+#include<netinet/udp.h>	//Provides declarations for udp header
+#include<netinet/tcp.h>	//Provides declarations for tcp header
+#include<netinet/ip.h>	//Provides declarations for ip header
+
+void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffer) {
+    ethlog_t *ethlog = (ethlog_t *)user;
+    iface_t *current_iface = &ethlog->iface[ethlog->iface_current];
+
+    if (!ethlog->is_active)
+        return;
+    // printf("hi1!!!\n");
+	
+	//Get the IP Header part of this packet , excluding the ethernet header
+	struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
+    struct sockaddr_in source;
+    memset(&source, 0, sizeof(source));
+	source.sin_addr.s_addr = iph->saddr;
+    char *ip_str = inet_ntoa(source.sin_addr);
+    int find_idx = search_ip_iface(ethlog->ip, 0, ethlog->iface_count - 1, ip_str, current_iface->iface_str);
+    if (find_idx == -1) {
+
+        ip_t ip = construct_ip(ip_str, 1);
+        push_ip(current_iface, ip);
+    } else {
+        ethlog->ip[find_idx].data_count++;
+    }
+
+    // printf("from %s", );
+	// ++total;
+	// printf("TCP : %d   UDP : %d   ICMP : %d   IGMP : %d   Others : %d   Total : %d\r", tcp , udp , icmp , igmp , others , total);
+
+
+}
+
+void *sniff_callback(void *data) {
+    ethlog_t *ethlog = (ethlog_t *)data;
+    printf("hi\n");
+    pcap_loop(ethlog->handler, -1, process, (u_char *)ethlog);
+    return NULL;
+}
+
+
 int daemon_server() {
     ethlog_t ethlog = construct_ethlog();
+
     struct msghdr msg = {0};
     struct iovec iovec;
     message_t client_message;
@@ -301,27 +401,35 @@ int daemon_server() {
     msg.msg_iov = &iovec;
     msg.msg_iovlen = 1;
 
+
+    thread_pack_t sniff_thread;
+    pthread_attr_init(&sniff_thread.attr);
+    pthread_mutex_init(&sniff_thread.mtx, NULL);
+
+    printf("%d\n", pcap_activate(ethlog.handler));
+    // pcap_loop(ethlog.handler, -1, process, (u_char *)(&ethlog));
     // Test
-    // ip_t a = construct_ip("255.255.255.255", 5);
-    // ip_t a1 = construct_ip("255.255.255.255", 6);
-    // ip_t b = construct_ip("127.0.0.1", 165);
-    // ip_t b1 = construct_ip("127.0.0.1", 16);
-    // iface_t iface = construct_iface("eth0", 0, NULL, NULL);
-    // iface_t *iface1 = push_iface(&ethlog, iface);
+    ip_t a = construct_ip("255.255.255.255", 5);
+    ip_t a1 = construct_ip("255.255.255.255", 6);
+    ip_t b = construct_ip("127.0.0.1", 165);
+    ip_t b1 = construct_ip("127.0.0.1", 16);
+    iface_t iface = construct_iface("eth0", 0, NULL, NULL, NULL);
+    iface_t *iface1 = push_iface(&ethlog, iface);
 
-    // iface_t some_if = construct_iface("eth1", 0, NULL, NULL);
-    // iface_t *some_if2 = push_iface(&ethlog, some_if);
+    iface_t some_if = construct_iface("eth1", 0, NULL, NULL, NULL);
+    iface_t *some_if2 = push_iface(&ethlog, some_if);
 
-    // iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL);
-    // iface_t *some_if12 = push_iface(&ethlog, some_if1);
-    // push_ip(iface1, a);
-    // push_ip(some_if2, a1);
-    // push_ip(iface1, b);
-    // push_ip(iface1, b1);
-    // push_ip(some_if12, a1);
+    iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL, NULL);
+    iface_t *some_if12 = push_iface(&ethlog, some_if1);
+    push_ip(iface1, a);
+    push_ip(some_if2, a1);
+    push_ip(iface1, b);
+    push_ip(iface1, b1);
+    push_ip(some_if12, a1);
     // ============
 
-    deserializer(&ethlog);
+    // deserializer(&ethlog);
+
 
     while (run) {
         sniffing(&ethlog);
@@ -332,32 +440,35 @@ int daemon_server() {
                 exit(1);
             }
         } else {
-            request_handler(&ethlog, client_message);
+            request_handler(&ethlog, client_message, &sniff_thread);
             // printf("received client_arg=%s %d\n", client_message.buf, getpid());
         }
     }
     printf("ehtlog: Daemon is terminated!\n");
+    pthread_mutex_destroy(&sniff_thread.mtx);
     cleanup();
     return EXIT_FAILURE;
 }
 
-// int main(int argc, char **argv) {
-//     int service = singleton_connect(SOCKET_NAME);
-//     switch (service) {
-//         case 0: { /* Daemon */
-//             signal_action_handler();
-//             return daemon_server();
-//         }
-//         case 1: { /* Client */
-//             return client(argc, argv);
-//         }
-//         default:
-//             cleanup();
-//             return EXIT_FAILURE;
-//     }
-//     cleanup();
-//     return EXIT_SUCCESS;
-// }
+int main(int argc, char **argv) {
+    int service = singleton_connect(SOCKET_NAME);
+    switch (service) {
+        case 0: { /* Daemon */
+            signal_action_handler();
+            return daemon_server();
+        }
+        case 1: { /* Client */
+            int ret = client(argc, argv);
+            sleep(1);
+            return ret;
+        }
+        default:
+            cleanup();
+            return EXIT_FAILURE;
+    }
+    cleanup();
+    return EXIT_SUCCESS;
+}
 
 
 // //  ***************** EXTRA ****************
@@ -413,6 +524,8 @@ void print_help() {
             "\tshow [ip] count\t\t | shows count of packets received from ip addess\n"
             "\tselect iface [iface]\t | select interface for sniffing\n"
             "\tstat [iface]\t\t | shows all collected statictics for interface\t\n"
+            "\tifaces\t\t | shows existing interfaces\t\n"
+            "\texit\t\t | stops daemon processt\n"
             "\t--help\t\t\t | shows usage\n\n"
     );
 }
@@ -437,6 +550,10 @@ bool parse_args(int argc, char **argv) {
         else if (strcmp(argv[0], "exit") == 0) {
             send_message(FLAG_EXIT, "");
             // printf("Stop!\n");
+            return true;
+        }
+        else if (strcmp(argv[0], "ifaces") == 0) {
+            send_message(FLAG_IFACES, "");
             return true;
         }
         return false;

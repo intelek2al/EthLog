@@ -1,12 +1,17 @@
 #include "iface.h"
 #include "ehtlog.h"
 
-iface_t construct_iface(char *iface_str, int ip_count, ip_t *ip, ethlog_t *parent) {
+iface_t construct_iface(char *iface_str, int ip_count, char *dscr, ip_t *ip, ethlog_t *parent) {
     iface_t iface;
     iface.parent = parent;
+
+    strcpy(iface.description, "");
+    strcpy(iface.iface_str, "");
+    if (dscr)
+        strcpy(iface.description, dscr);
     iface.ip_count = ip_count;
     if (strlen(iface_str) > IFACE_NAME_SIZE) {
-        fprintf(stderr, "IFACE name is overflowed\n");
+        fprintf(stderr, "Interface name is overflowed\n");
         exit(1);
     }
     strcpy(iface.iface_str, iface_str);
@@ -31,7 +36,7 @@ void push_ip(iface_t *iface, ip_t ip) {
     ip.parent = iface;
     ethlog->ip[++(ethlog->ip_count) - 1] = ip;
     iface->ip[++iface->ip_count - 1] = &(ethlog->ip[ethlog->ip_count - 1]);
-    qsort(ethlog->ip, iface->ip_count, sizeof(ip_t), ipcmp);
+    qsort(ethlog->ip, ethlog->ip_count, sizeof(ip_t), ipcmp);
 }
 
 int search_ip(ip_t *arr, int l, int r, char *ip_str) {
@@ -39,6 +44,20 @@ int search_ip(ip_t *arr, int l, int r, char *ip_str) {
         int mid = l + (r - l) / 2;
 
         if (strcmp(arr[mid].ip_str, ip_str) == 0)
+            return mid;
+        if (strcmp(arr[mid].ip_str, ip_str) > 0)
+            return search_ip(arr, l, mid - 1, ip_str);
+  
+        return search_ip(arr, mid + 1, r, ip_str);
+    }
+    return -1;
+}
+
+int search_ip_iface(ip_t *arr, int l, int r, char *ip_str, char *iface) {
+    if (r >= l) {
+        int mid = l + (r - l) / 2;
+
+        if (strcmp(arr[mid].ip_str, ip_str) == 0 && strcmp(arr[mid].parent->iface_str, iface) == 0)
             return mid;
         if (strcmp(arr[mid].ip_str, ip_str) > 0)
             return search_ip(arr, l, mid - 1, ip_str);

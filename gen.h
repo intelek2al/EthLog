@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <regex.h>
 #include <string.h>
+#include <pcap.h>
 
 
 bool check_regex(char *str, char *pattern);

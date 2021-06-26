@@ -14,13 +14,15 @@ struct ethlog_s {
     iface_t iface[IFACE_MAX_COUNT];
     ip_t ip[IFACE_MAX_COUNT * IP_MAX_COUNT];
     bool is_active;
+    
+    pcap_t *handler;
+    pcap_if_t *alldevsp;
 } typedef ethlog_t;
 
 struct sz_connector_s {
     int iface_count;
     sz_iface_t iface[IFACE_MAX_COUNT];
 } typedef sz_connector_t;
-
 
 
 ethlog_t construct_ethlog();

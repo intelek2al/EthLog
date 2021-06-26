@@ -3,10 +3,28 @@
 
 ethlog_t construct_ethlog() {
     ethlog_t ethlog;
+    char errbuf[100];
+
     ethlog.iface_count = 0;
     ethlog.ip_count = 0;
     ethlog.iface_current = -1;
     ethlog.is_active = false;
+
+    if(pcap_findalldevs( &ethlog.alldevsp, errbuf)) {
+        printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
+
+    for (pcap_if_t *dev = ethlog.alldevsp; dev; dev = dev->next) {
+        iface_t iface = construct_iface(dev->name, 0, dev->description, NULL, &ethlog);
+        push_iface(&ethlog, iface);
+    }
+    ethlog.handler = pcap_open_live(ethlog.iface[ethlog.iface_current].iface_str, 65536, 1, 1, errbuf);
+    if(ethlog.handler == NULL) {
+        printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
+    
     return ethlog;
 }
 
@@ -27,7 +45,7 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
     ethlog->iface[++ethlog->iface_count - 1] = iface;
     if (ethlog->iface_count != 0 && ethlog->iface_current == -1)
         ethlog->iface_current = 0;
-    qsort(ethlog->iface, ethlog->iface_count, sizeof(iface_t), ifacecmp);
+    // qsort(ethlog->iface, ethlog->iface_count, sizeof(iface_t), ifacecmp);
     return &ethlog->iface[ethlog->iface_count - 1];
 }
 
@@ -59,7 +77,7 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str) {
 int search_iface(iface_t *arr, int l, int r, char *iface_str) {
     if (r >= l) {
         int mid = l + (r - l) / 2;
-
+        // printf("|%s|, |%s|\n", arr[mid].iface_str, iface_str);
         if (strcmp(arr[mid].iface_str, iface_str) == 0)
             return mid;
         if (strcmp(arr[mid].iface_str, iface_str) > 0)
