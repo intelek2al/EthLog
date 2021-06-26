@@ -341,63 +341,63 @@ int daemon_server() {
     return EXIT_FAILURE;
 }
 
-// int main(int argc, char **argv) {
-//     int service = singleton_connect(SOCKET_NAME);
-//     switch (service) {
-//         case 0: { /* Daemon */
-//             signal_action_handler();
-//             return daemon_server();
-//         }
-//         case 1: { /* Client */
-//             return client(argc, argv);
-//         }
-//         default:
-//             cleanup();
-//             return EXIT_FAILURE;
-//     }
-//     cleanup();
-//     return EXIT_SUCCESS;
-// }
+int main(int argc, char **argv) {
+    int service = singleton_connect(SOCKET_NAME);
+    switch (service) {
+        case 0: { /* Daemon */
+            signal_action_handler();
+            return daemon_server();
+        }
+        case 1: { /* Client */
+            return client(argc, argv);
+        }
+        default:
+            cleanup();
+            return EXIT_FAILURE;
+    }
+    cleanup();
+    return EXIT_SUCCESS;
+}
 
 
-// //  ***************** EXTRA ****************
-// char *strnew(const int size) {
-//     char *ptrVar = NULL;
+//  ***************** EXTRA ****************
+char *strnew(const int size) {
+    char *ptrVar = NULL;
 
-//     if (size >= 0) {
-//         if ((ptrVar = malloc((size + 1) * sizeof(char))) == NULL)
-//             return NULL;
-//         else  {        
-//             for (int i = 0; i <= size; i++) 
-//                 ptrVar[i] = '\0';            
-//         }
-//         return ptrVar;
-//     }
-//     return NULL;     
-// }
+    if (size >= 0) {
+        if ((ptrVar = malloc((size + 1) * sizeof(char))) == NULL)
+            return NULL;
+        else  {        
+            for (int i = 0; i <= size; i++) 
+                ptrVar[i] = '\0';            
+        }
+        return ptrVar;
+    }
+    return NULL;     
+}
 
-// char *strdup(const char *s1) {
-//     char *arr = strnew(strlen(s1));
+char *strdup(const char *s1) {
+    char *arr = strnew(strlen(s1));
 
-//     for (int i = 0; i < strlen(s1); i++) {
-//         arr[i] = s1[i];
-//     }
-//     arr[strlen(s1)] = '\0';
-//     return arr;
-// }
+    for (int i = 0; i < strlen(s1); i++) {
+        arr[i] = s1[i];
+    }
+    arr[strlen(s1)] = '\0';
+    return arr;
+}
 
-// char *strjoin(const char *s1, const char *s2) {
-//     char *result = NULL;
+char *strjoin(const char *s1, const char *s2) {
+    char *result = NULL;
 
-//     if (!s1 && !s2) 
-//         return NULL;
-//     if (!s2) 
-//         return strdup(s1);
-//     if (!s1) 
-//         return strdup(s2);
-//     result = strcat(strcpy(strnew(strlen(s1) + strlen(s2)), s1), s2);
-//     return result;
-// }
+    if (!s1 && !s2) 
+        return NULL;
+    if (!s2) 
+        return strdup(s1);
+    if (!s1) 
+        return strdup(s2);
+    result = strcat(strcpy(strnew(strlen(s1) + strlen(s2)), s1), s2);
+    return result;
+}
 
 //  ***************** EXTRA ****************
 
