@@ -16,15 +16,30 @@ struct ethlog_s {
     bool is_active;
 } typedef ethlog_t;
 
+struct sz_connector_s {
+    int iface_count;
+    sz_iface_t iface[IFACE_MAX_COUNT];
+} typedef sz_connector_t;
+
+
+
 ethlog_t construct_ethlog();
 
 iface_t *push_iface(ethlog_t *ethlog, iface_t iface);
 
 void find_print_ip(ethlog_t *ethlog, char *ip_str);
 
+// ======= SERIALIZING ==========
+
 void serializer(ethlog_t *ethlog);
 
 ethlog_t *deserializer(ethlog_t *ethlog);
+
+sz_connector_t tosz(ethlog_t *ethlog);
+
+void fromsz(ethlog_t *ethlog, sz_connector_t *connector);
+
+// ======= ============ ==========
 
 int search_iface(iface_t *arr, int l, int r, char *iface_str);
 

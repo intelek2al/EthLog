@@ -234,7 +234,7 @@ void send_message(int flag, char *arg) {
 //     push_ip(iface1, b1);
 //     push_ip(some_if12, a1);
 
-//     serializer(&ethlog);
+//     // serializer(&ethlog);
 
 //     ethlog_t ethlog2 = construct_ethlog();
 //     deserializer(&ethlog2);
@@ -245,7 +245,8 @@ void send_message(int flag, char *arg) {
 
 //     // // print_iface_stat(iface1);
 //     // // print_iface_stat(some_if2);
-//     // find_print_ip(&ethlog, "255.255.255.255");
+//     find_print_iface(&ethlog, "eth0");
+//     find_print_iface(&ethlog2, "eth0");
     
 //     return 0;
 // }
@@ -340,23 +341,23 @@ int daemon_server() {
     return EXIT_FAILURE;
 }
 
-int main(int argc, char **argv) {
-    int service = singleton_connect(SOCKET_NAME);
-    switch (service) {
-        case 0: { /* Daemon */
-            signal_action_handler();
-            return daemon_server();
-        }
-        case 1: { /* Client */
-            return client(argc, argv);
-        }
-        default:
-            cleanup();
-            return EXIT_FAILURE;
-    }
-    cleanup();
-    return EXIT_SUCCESS;
-}
+// int main(int argc, char **argv) {
+//     int service = singleton_connect(SOCKET_NAME);
+//     switch (service) {
+//         case 0: { /* Daemon */
+//             signal_action_handler();
+//             return daemon_server();
+//         }
+//         case 1: { /* Client */
+//             return client(argc, argv);
+//         }
+//         default:
+//             cleanup();
+//             return EXIT_FAILURE;
+//     }
+//     cleanup();
+//     return EXIT_SUCCESS;
+// }
 
 
 // //  ***************** EXTRA ****************
