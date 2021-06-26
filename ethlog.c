@@ -19,6 +19,10 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
         fprintf(stderr, "IFace buffer overflow\n");
         exit(1);
     }
+    int exist_idx = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, iface.iface_str);
+    if (exist_idx != -1) {
+        return &ethlog->iface[exist_idx];
+    } 
     iface.parent = ethlog;
     ethlog->iface[++ethlog->iface_count - 1] = iface;
     if (ethlog->iface_count != 0 && ethlog->iface_current == -1)
@@ -78,12 +82,26 @@ void find_print_iface(ethlog_t *ethlog, char *iface_str) {
 
 void serializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "wb");
+
     if (!fd) {
         perror("ethlog");
         fprintf(stderr, "Try with sudo\n");
         exit(EXIT_FAILURE);
     }
-    if (fwrite(ethlog, sizeof(ethlog_t), 1, fd) != 1) {
+
+    char buff[sizeof(sz_connector_t) + sizeof(ethlog_t)];
+    
+    sz_connector_t connector = tosz(ethlog);
+    // for (int i = 0; i < connector.iface_count; i++)
+    //     for (int j = 0; j < connector.iface[i].ip_count; j++) {
+    //         printf("iface %d: ip %d\n", i, connector.iface[i].ip[j]);
+    //     }
+    
+
+    memcpy(buff, &connector, sizeof(sz_connector_t));
+    memcpy((buff + sizeof(sz_connector_t)), ethlog, sizeof(ethlog_t));
+
+    if (fwrite(buff, sizeof(sz_connector_t) + sizeof(ethlog_t), 1, fd) != 1) {
         perror("ethlog");
         exit(EXIT_FAILURE);
     }
@@ -93,13 +111,52 @@ void serializer(ethlog_t *ethlog) {
 ethlog_t *deserializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "rb");
     if (!fd) {
+        perror("ethlog");
         *ethlog = construct_ethlog();
         return ethlog;
     }
-    int ret = fread(ethlog, sizeof(ethlog_t), 1, fd);
+
+    char buff[sizeof(sz_connector_t) + sizeof(ethlog_t)];
+    sz_connector_t connector;
+
+    int ret = fread(buff, sizeof(sz_connector_t) + sizeof(ethlog_t), 1, fd);
     if (ret != 1) {
         *ethlog = construct_ethlog();
     }
+    else {
+        memcpy(&connector, buff, sizeof(sz_connector_t));
+        memcpy(ethlog, (buff + sizeof(sz_connector_t)), sizeof(ethlog_t));
+        fromsz(ethlog, &connector);
+    }
+    // for (int i = 0; i < connector.iface_count; i++)
+    //     for (int j = 0; j < connector.iface[i].ip_count; j++) {
+    //         printf("iface %d: ip %d\n", i, connector.iface[i].ip[j]);
+    //     }
     fclose(fd);
     return ethlog;
 }
+
+sz_connector_t tosz(ethlog_t *ethlog) { // normal to serializable
+    sz_connector_t connector;
+
+    connector.iface_count = ethlog->iface_count;
+    for (int i_ifc = 0; i_ifc < ethlog->iface_count; i_ifc++) {
+        connector.iface[i_ifc].ip_count = ethlog->iface[i_ifc].ip_count;
+        for (int i_ip = 0; i_ip < ethlog->iface[i_ifc].ip_count; i_ip++) {
+            connector.iface[i_ifc].ip[i_ip] = ethlog->iface[i_ifc].ip[i_ip] - &ethlog->ip[0]; // finding index in global ip array
+        }
+    }
+    return connector;
+}
+
+void fromsz(ethlog_t *ethlog, sz_connector_t *connector) {
+    for (int i_ifc = 0; i_ifc < connector->iface_count; i_ifc++) {
+        for (int i_ip = 0; i_ip < connector->iface[i_ifc].ip_count; i_ip++) {
+            ip_t *ip = &ethlog->ip[connector->iface[i_ifc].ip[i_ip]];
+            ip->parent = &ethlog->iface[i_ifc];
+            ethlog->iface[i_ifc].ip[i_ip] = ip;
+        }
+        ethlog->iface[i_ifc].parent = ethlog;
+    }
+}
+

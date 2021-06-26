@@ -15,6 +15,10 @@ struct iface_s {
     ip_t *ip[IP_MAX_COUNT];
 } typedef iface_t;
 
+struct sz_iface_s {
+    int ip_count;
+    int ip[IP_MAX_COUNT]; // indexes in ethlog_t ip array
+} typedef sz_iface_t;
 
 iface_t construct_iface(char *iface_str, int ip_count, ip_t *ip, struct ethlog_s *parent);
 
