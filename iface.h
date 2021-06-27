@@ -30,7 +30,7 @@ void push_ip(iface_t *iface, ip_t ip);
 
 int search_ip(ip_t *arr, int l, int r, char *ip_str);
 
-int search_ip_iface(ip_t *arr, int l, int r, char *ip_str, char *iface);
+int search_ip_iface(iface_t *iface, int l, int r, char *ip_str);
 
 void print_iface_stat(iface_t *iface);
 

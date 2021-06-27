@@ -53,16 +53,15 @@ int search_ip(ip_t *arr, int l, int r, char *ip_str) {
     return -1;
 }
 
-int search_ip_iface(ip_t *arr, int l, int r, char *ip_str, char *iface) {
+int search_ip_iface(iface_t *iface, int l, int r, char *ip_str) {
     if (r >= l) {
         int mid = l + (r - l) / 2;
-
-        if (strcmp(arr[mid].ip_str, ip_str) == 0 && strcmp(arr[mid].parent->iface_str, iface) == 0)
+        if (strcmp(iface->ip[mid]->ip_str, ip_str) == 0)
             return mid;
-        if (strcmp(arr[mid].ip_str, ip_str) > 0)
-            return search_ip(arr, l, mid - 1, ip_str);
+        if (strcmp(iface->ip[mid]->ip_str, ip_str) > 0)
+            return search_ip_iface(iface, l, mid - 1, ip_str);
   
-        return search_ip(arr, mid + 1, r, ip_str);
+        return search_ip_iface(iface, mid + 1, r, ip_str);
     }
     return -1;
 }

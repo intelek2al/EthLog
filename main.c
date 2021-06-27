@@ -91,6 +91,7 @@ static bool run = true;
 // }
 
 int singleton_connect(const char *name) {
+
     int len, tmpd;
     struct sockaddr_un addr = {0};
 
@@ -111,6 +112,7 @@ int singleton_connect(const char *name) {
             socket_fd = tmpd;
             isdaemon = true;
             if (fork() != 0 ) {
+                printf("Come\n");
                 return singleton_connect(name);
             }
             umask(0);
@@ -170,7 +172,7 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
     stop_sniff(ethlog, thread);
     char errbuf[100];
 
-    ethlog->iface_current = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, eth);
+    ethlog->iface_current = search_iface(ethlog->iface, ethlog->iface_count, eth);
     ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 0, errbuf);
     if (ethlog->handler == NULL) 
 	{
@@ -213,6 +215,7 @@ void stop_sniff(ethlog_t *ethlog, thread_pack_t *thread) {
     pthread_mutex_lock(&thread->mtx);
     ethlog->is_active = false;
     pthread_mutex_unlock(&thread->mtx);
+    pthread_cancel(thread->trd);
     pthread_join(thread->trd, NULL);
 }
 
@@ -355,10 +358,12 @@ void sniffing(ethlog_t *ethlog) {
 void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffer) {
     ethlog_t *ethlog = (ethlog_t *)user;
     iface_t *current_iface = &ethlog->iface[ethlog->iface_current];
-
+    // if (!run)
+    //     pcap_breakloop(ethlog->handler);
     if (!ethlog->is_active)
         return;
-    // printf("hi1!!!\n");
+    // if (!ethlog->is_active)
+    //     return;
 	
 	//Get the IP Header part of this packet , excluding the ethernet header
 	struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
@@ -366,12 +371,13 @@ void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffe
     memset(&source, 0, sizeof(source));
 	source.sin_addr.s_addr = iph->saddr;
     char *ip_str = inet_ntoa(source.sin_addr);
-    int find_idx = search_ip_iface(ethlog->ip, 0, ethlog->iface_count - 1, ip_str, current_iface->iface_str);
+    int find_idx = search_ip_iface(current_iface, 0, current_iface->ip_count - 1, ip_str);
     if (find_idx == -1) {
-
+        // printf("NEW %s\n", ip_str);
         ip_t ip = construct_ip(ip_str, 1);
         push_ip(current_iface, ip);
     } else {
+        // printf("EXIST\n");
         ethlog->ip[find_idx].data_count++;
     }
 
@@ -379,19 +385,20 @@ void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffe
 	// ++total;
 	// printf("TCP : %d   UDP : %d   ICMP : %d   IGMP : %d   Others : %d   Total : %d\r", tcp , udp , icmp , igmp , others , total);
 
-
 }
 
 void *sniff_callback(void *data) {
     ethlog_t *ethlog = (ethlog_t *)data;
     printf("hi\n");
     pcap_loop(ethlog->handler, -1, process, (u_char *)ethlog);
+    printf("Loop is zaloop\n");
     return NULL;
 }
 
 
 int daemon_server() {
-    ethlog_t ethlog = construct_ethlog();
+    ethlog_t ethlog;
+    construct_ethlog(&ethlog);
 
     struct msghdr msg = {0};
     struct iovec iovec;
@@ -446,6 +453,8 @@ int daemon_server() {
     }
     printf("ehtlog: Daemon is terminated!\n");
     pthread_mutex_destroy(&sniff_thread.mtx);
+    pthread_cancel(sniff_thread.trd);
+    pthread_join(sniff_thread.trd, NULL);
     cleanup();
     return EXIT_FAILURE;
 }
