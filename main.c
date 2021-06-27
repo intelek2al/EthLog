@@ -104,7 +104,7 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
 
     int new_ifc = search_iface(ethlog->iface, ethlog->iface_count, eth);
     if (new_ifc == -1) {
-        fprintf(stderr, "Interface does not exist!\n");
+        fprintf(stderr, "ethlog: Interface does not exist!\n");
         return 1;
     }
 
@@ -113,10 +113,11 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
     ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 0, errbuf);
     if (ethlog->handler == NULL) 
 	{
-		fprintf(stderr, "Couldn't open device %s : %s\n" , eth , errbuf);
+		fprintf(stderr, "ethlog: Couldn't open device %s : %s\n" , eth , errbuf);
 		return 1;
 	}
-    start_sniff(ethlog, thread);
+    if (ethlog->is_active)
+        start_sniff(ethlog, thread);
 
     return 0;
 }
