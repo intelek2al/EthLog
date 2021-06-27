@@ -122,8 +122,13 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
     return 0;
 }
 
-int stat_iface(ethlog_t *ethlog, char *iface) {
-    find_print_iface(ethlog, iface);
+int stat_iface(ethlog_t *ethlog, char *iface, bool is_all) {
+    if (is_all) {
+        for (int i = 0; i < ethlog->iface_count; i++)
+            print_iface_stat(&ethlog->iface[i]);
+    }
+    else
+        find_print_iface(ethlog, iface);
     return 0;
 }
 
@@ -157,6 +162,16 @@ void stop_sniff(ethlog_t *ethlog, thread_pack_t *thread) {
     pthread_join(thread->trd, NULL);
 }
 
+int clear(ethlog_t *ethlog, thread_pack_t *thread) {
+    stop_sniff(ethlog, thread);
+    if (remove("/var/run/ethlog.dat") != 0)
+        printf("ethlog: Failed clearing!\n");
+    ethlog_t ethlog_new;
+    construct_ethlog(&ethlog_new);
+    memmove(ethlog, &ethlog_new, sizeof(ethlog_t));
+    return 0;
+}
+
 void request_handler(ethlog_t *ethlog, message_t message, thread_pack_t *thread) {
     switch (message.flag) {   
         case FLAG_START:
@@ -172,7 +187,13 @@ void request_handler(ethlog_t *ethlog, message_t message, thread_pack_t *thread)
             select_iface(ethlog, message.buf, thread);
             break;
         case FLAG_STAT:
-            stat_iface(ethlog, message.buf);
+            stat_iface(ethlog, message.buf, false);
+            break;
+        case FLAG_STAT_ALL:
+            stat_iface(ethlog, message.buf, true);
+            break;
+        case FLAG_CLEAR:
+            clear(ethlog, thread);
             break;
         case FLAG_IFACES:
             print_all_iface(ethlog);
@@ -408,8 +429,10 @@ void print_help() {
             "\tshow [ip] count\t\t | shows count of packets received from ip addess\n"
             "\tselect iface [iface]\t | select interface for sniffing\n"
             "\tstat [iface]\t\t | shows all collected statictics for interface\t\n"
-            "\tifaces\t\t | shows existing interfaces\t\n"
-            "\texit\t\t | stops daemon processt\n"
+            "\tstat \t\t\t | shows all collected statictics for each interface\t\n"
+            "\tclear \t\t\t | resets all data\t\n"
+            "\tifaces\t\t\t | shows existing interfaces\t\n"
+            "\texit\t\t\t | stops daemon process\n"
             "\t--help\t\t\t | shows usage\n\n"
     );
 }
