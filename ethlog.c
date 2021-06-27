@@ -141,6 +141,21 @@ ethlog_t *deserializer(ethlog_t *ethlog) {
         memcpy(&connector, buff, sizeof(sz_connector_t));
         memcpy(ethlog, (buff + sizeof(sz_connector_t)), sizeof(ethlog_t));
         fromsz(ethlog, &connector);
+        
+        
+        char errbuf[100];
+
+        if (pcap_findalldevs( &ethlog->alldevsp, errbuf)) {
+            construct_ethlog(ethlog);
+            printf("construct_ethlog: %s\n", errbuf);
+            return ethlog;
+        }
+        ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 1, errbuf);
+        if (ethlog->handler == NULL) {
+            construct_ethlog(ethlog);
+            printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
     }
     // for (int i = 0; i < connector.iface_count; i++)
     //     for (int j = 0; j < connector.iface[i].ip_count; j++) {
