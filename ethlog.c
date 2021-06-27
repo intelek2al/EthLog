@@ -1,12 +1,29 @@
 #include "ehtlog.h"
 #include "iface.h"
 
-ethlog_t construct_ethlog() {
-    ethlog_t ethlog;
-    ethlog.iface_count = 0;
-    ethlog.ip_count = 0;
-    ethlog.iface_current = -1;
-    ethlog.is_active = false;
+ethlog_t *construct_ethlog(ethlog_t *ethlog) {
+    char errbuf[100];
+
+    ethlog->iface_count = 0;
+    ethlog->ip_count = 0;
+    ethlog->iface_current = -1;
+    ethlog->is_active = false;
+
+    if(pcap_findalldevs( &ethlog->alldevsp, errbuf)) {
+        printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
+
+    for (pcap_if_t *dev = ethlog->alldevsp; dev; dev = dev->next) {
+        iface_t iface = construct_iface(dev->name, 0, dev->description, NULL, ethlog);
+        push_iface(ethlog, iface);
+    }
+    ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 1, errbuf);
+    if(ethlog->handler == NULL) {
+        printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
+    
     return ethlog;
 }
 
@@ -19,7 +36,7 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
         fprintf(stderr, "IFace buffer overflow\n");
         exit(1);
     }
-    int exist_idx = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, iface.iface_str);
+    int exist_idx = search_iface(ethlog->iface, ethlog->iface_count, iface.iface_str);
     if (exist_idx != -1) {
         return &ethlog->iface[exist_idx];
     } 
@@ -27,7 +44,7 @@ iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
     ethlog->iface[++ethlog->iface_count - 1] = iface;
     if (ethlog->iface_count != 0 && ethlog->iface_current == -1)
         ethlog->iface_current = 0;
-    qsort(ethlog->iface, ethlog->iface_count, sizeof(iface_t), ifacecmp);
+    // qsort(ethlog->iface, ethlog->iface_count, sizeof(iface_t), ifacecmp);
     return &ethlog->iface[ethlog->iface_count - 1];
 }
 
@@ -56,22 +73,16 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str) {
     }
 }
 
-int search_iface(iface_t *arr, int l, int r, char *iface_str) {
-    if (r >= l) {
-        int mid = l + (r - l) / 2;
-
-        if (strcmp(arr[mid].iface_str, iface_str) == 0)
-            return mid;
-        if (strcmp(arr[mid].iface_str, iface_str) > 0)
-            return search_iface(arr, l, mid - 1, iface_str);
-  
-        return search_iface(arr, mid + 1, r, iface_str);
+int search_iface(iface_t *arr, int size, char *iface_str) {
+    for (int i = 0; i < size; i++) {
+        if (strcmp(arr[i].iface_str, iface_str) == 0)
+            return i;
     }
     return -1;
 }
 
 void find_print_iface(ethlog_t *ethlog, char *iface_str) {
-    int iface_idx = search_iface(ethlog->iface, 0, ethlog->iface_count - 1, iface_str);
+    int iface_idx = search_iface(ethlog->iface, ethlog->iface_count, iface_str);
     if (iface_idx != -1) {
         print_iface_stat(&ethlog->iface[iface_idx]);
     }
@@ -112,7 +123,7 @@ ethlog_t *deserializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "rb");
     if (!fd) {
         perror("ethlog");
-        *ethlog = construct_ethlog();
+        construct_ethlog(ethlog);
         return ethlog;
     }
 
@@ -121,7 +132,7 @@ ethlog_t *deserializer(ethlog_t *ethlog) {
 
     int ret = fread(buff, sizeof(sz_connector_t) + sizeof(ethlog_t), 1, fd);
     if (ret != 1) {
-        *ethlog = construct_ethlog();
+        construct_ethlog(ethlog);
     }
     else {
         memcpy(&connector, buff, sizeof(sz_connector_t));

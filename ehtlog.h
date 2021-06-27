@@ -14,6 +14,11 @@ struct ethlog_s {
     iface_t iface[IFACE_MAX_COUNT];
     ip_t ip[IFACE_MAX_COUNT * IP_MAX_COUNT];
     bool is_active;
+    
+    pcap_t *handler;
+    pcap_if_t *alldevsp;
+
+    // thread_pack_t sniff_thread;
 } typedef ethlog_t;
 
 struct sz_connector_s {
@@ -22,8 +27,7 @@ struct sz_connector_s {
 } typedef sz_connector_t;
 
 
-
-ethlog_t construct_ethlog();
+ethlog_t *construct_ethlog(ethlog_t *);
 
 iface_t *push_iface(ethlog_t *ethlog, iface_t iface);
 
@@ -41,7 +45,7 @@ void fromsz(ethlog_t *ethlog, sz_connector_t *connector);
 
 // ======= ============ ==========
 
-int search_iface(iface_t *arr, int l, int r, char *iface_str);
+int search_iface(iface_t *arr, int size, char *iface_str);
 
 void find_print_iface(ethlog_t *ethlog, char *iface_str);
 

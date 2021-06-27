@@ -15,8 +15,36 @@
 #include <sys/stat.h>
 #include <regex.h>
 #include <string.h>
+#include <pcap.h>
+#include <arpa/inet.h>
+#include <net/ethernet.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
+#include <netinet/ip.h>
+
+#include <pthread.h>
+
+struct thread_pack_s {
+    pthread_t trd;
+    pthread_attr_t attr;
+    pthread_mutex_t mtx;
+} typedef thread_pack_t;
 
 
 bool check_regex(char *str, char *pattern);
+
+
+#define SOCKET_NAME "/tmp/ethlog"
+
+#define DATA_ERROR -1
+#define FLAG_EXIT 0
+#define FLAG_START 1
+#define FLAG_STOP 2
+#define FLAG_SHOW 3
+#define FLAG_SELECT 4
+#define FLAG_STAT 5
+#define FLAG_IFACES 6
+
 
 #endif
