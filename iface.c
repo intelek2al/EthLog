@@ -11,7 +11,7 @@ iface_t construct_iface(char *iface_str, int ip_count, char *dscr, ip_t *ip, eth
         strcpy(iface.description, dscr);
     iface.ip_count = ip_count;
     if (strlen(iface_str) > IFACE_NAME_SIZE) {
-        fprintf(stderr, "Interface name is overflowed\n");
+        fprintf(stderr, "ethlog: Interface name is overflowed\n");
         exit(1);
     }
     strcpy(iface.iface_str, iface_str);
@@ -37,9 +37,7 @@ void push_ip(iface_t *iface, ip_t ip) {
     ethlog->ip[++(ethlog->ip_count) - 1] = ip;
     iface->ip[++iface->ip_count - 1] = &(ethlog->ip[ethlog->ip_count - 1]);
     qsort(ethlog->ip, ethlog->ip_count, sizeof(ip_t), ipcmp);
-    // printf("GI\n");
     qsort(iface->ip, iface->ip_count, sizeof(ip_t *), ipcmpptr);
-    // printf("BI\n");
 }
 
 int search_ip(ip_t *arr, int l, int r, char *ip_str) {
