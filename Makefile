@@ -16,7 +16,6 @@ COMPILE = $(CMPL) $(OBJO) -o $(NAME) -lpcap -lpthread
 
 all: install
 
-
 $(OBJD):
 	@mkdir -p $@
 
