@@ -33,7 +33,7 @@ int ifacecmp(const void *if1, const void *if2) {
 
 iface_t *push_iface(ethlog_t *ethlog, iface_t iface) {
     if (ethlog->iface_count + 1 > IFACE_MAX_COUNT) {
-        fprintf(stderr, "IFace buffer overflow\n");
+        fprintf(stderr, "ethlog: IFace buffer overflow\n");
         exit(1);
     }
     int exist_idx = search_iface(ethlog->iface, ethlog->iface_count, iface.iface_str);
@@ -63,13 +63,13 @@ void find_print_ip(ethlog_t *ethlog, char *ip_str) {
                 print_ip_stat(&ethlog->ip[ip_idx - i]);
                 flag++;
             }
-            write(0, "\n", 1);
+            printf("\n");
             if (flag == 0)
                 break;
         }
     }
     else {
-        printf("IP does not exist!\n");
+        printf("ethlog: IP does not exist!\n");
     }
 }
 
@@ -84,10 +84,13 @@ int search_iface(iface_t *arr, int size, char *iface_str) {
 void find_print_iface(ethlog_t *ethlog, char *iface_str) {
     int iface_idx = search_iface(ethlog->iface, ethlog->iface_count, iface_str);
     if (iface_idx != -1) {
+        if (iface_idx == ethlog->iface_current) {
+            printf("(ACTIVE) ");
+        }
         print_iface_stat(&ethlog->iface[iface_idx]);
     }
     else {
-        printf("Interface does not exist!\n");
+        printf("ethlog: Interface does not exist!\n");
     }
 }
 
@@ -96,7 +99,7 @@ void serializer(ethlog_t *ethlog) {
 
     if (!fd) {
         perror("ethlog");
-        fprintf(stderr, "Try with sudo\n");
+        fprintf(stderr, "ethlog: Try with sudo\n");
         exit(EXIT_FAILURE);
     }
 
@@ -122,7 +125,7 @@ void serializer(ethlog_t *ethlog) {
 ethlog_t *deserializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "rb");
     if (!fd) {
-        perror("ethlog");
+        // perror("ethlog");
         construct_ethlog(ethlog);
         return ethlog;
     }
@@ -138,6 +141,21 @@ ethlog_t *deserializer(ethlog_t *ethlog) {
         memcpy(&connector, buff, sizeof(sz_connector_t));
         memcpy(ethlog, (buff + sizeof(sz_connector_t)), sizeof(ethlog_t));
         fromsz(ethlog, &connector);
+        
+        
+        char errbuf[100];
+
+        if (pcap_findalldevs( &ethlog->alldevsp, errbuf)) {
+            construct_ethlog(ethlog);
+            printf("construct_ethlog: %s\n", errbuf);
+            return ethlog;
+        }
+        ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 1, errbuf);
+        if (ethlog->handler == NULL) {
+            construct_ethlog(ethlog);
+            printf("construct_ethlog: %s\n", errbuf);
+		return ethlog;
+    }
     }
     // for (int i = 0; i < connector.iface_count; i++)
     //     for (int j = 0; j < connector.iface[i].ip_count; j++) {

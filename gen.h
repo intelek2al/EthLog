@@ -44,7 +44,9 @@ bool check_regex(char *str, char *pattern);
 #define FLAG_SHOW 3
 #define FLAG_SELECT 4
 #define FLAG_STAT 5
-#define FLAG_IFACES 6
+#define FLAG_STAT_ALL 6
+#define FLAG_IFACES 7
+#define FLAG_CLEAR 8
 
 
 #endif

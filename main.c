@@ -29,7 +29,7 @@ int singleton_connect(const char *name) {
     struct sockaddr_un addr = {0};
 
     if ((tmpd = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0) {
-        printf("Could not create socket: '%s'.\n", strerror(errno));
+        perror("ethlog: Could not create socket\n");
         return -1;
     }
 
@@ -45,7 +45,6 @@ int singleton_connect(const char *name) {
             socket_fd = tmpd;
             isdaemon = true;
             if (fork() != 0 ) {
-                printf("Come\n");
                 return singleton_connect(name);
             }
             umask(0);
@@ -55,25 +54,23 @@ int singleton_connect(const char *name) {
             if (errno == EADDRINUSE) {
                 ret = connect(tmpd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un));
                 if (ret != 0) {
-                    printf("Socket %d\n", tmpd);
                     if (errno == ECONNREFUSED) {
-                        printf("Could not connect to socket - assuming daemon died.\n");
                         unlink(name);
                         continue;
                     }
-                    printf("Could not connect to socket: '%s'.\n", strerror(errno));
+                    fprintf(stderr, "ethlog: Could not connect to socket: '%s'.\n", strerror(errno));
                     continue;
                 }
                 // printf("Daemon is already running.\n");
                 socket_fd = tmpd;
                 return 1;
             }
-            printf("Could not bind to socket: '%s'.\n", strerror(errno));
+            perror("ethlog: Could not bind to socket\n");
             continue;
         }
     } while (retries-- > 0);
 
-    printf("Could neither connect to an existing daemon nor become one.\n");
+    printf("ethlog: Could neither connect to an existing daemon nor become one.\n");
     close(tmpd);
     return -1;
 }
@@ -90,7 +87,6 @@ static void cleanup(void) {
 
 static void handler(int sig) {
     run = false;
-    
 }
 
 int show_count(ethlog_t *ethlog, char *ip) {
@@ -108,7 +104,7 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
 
     int new_ifc = search_iface(ethlog->iface, ethlog->iface_count, eth);
     if (new_ifc == -1) {
-        fprintf(stderr, "Interface does not exist!\n");
+        fprintf(stderr, "ethlog: Interface does not exist!\n");
         return 1;
     }
 
@@ -117,10 +113,11 @@ int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
     ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 0, errbuf);
     if (ethlog->handler == NULL) 
 	{
-		fprintf(stderr, "Couldn't open device %s : %s\n" , eth , errbuf);
+		fprintf(stderr, "ethlog: Couldn't open device %s : %s\n" , eth , errbuf);
 		return 1;
 	}
-    start_sniff(ethlog, thread);
+    if (ethlog->is_active)
+        start_sniff(ethlog, thread);
 
     return 0;
 }
@@ -200,9 +197,9 @@ void send_message(int flag, char *arg) {
     int ret = sendmsg(socket_fd, &msg, 0);
     if (ret != sizeof(message)) {
         if (ret < 0)
-            printf("Could not send device address to daemon: '%s'!\n", strerror(errno));
+            perror("ehtlog: Could not send device address to daemon\n");
         else
-            printf("Could not send device address to daemon completely!\n");
+            fprintf(stderr, "ehtlog: Could not send device address to daemon completely!\n");
         cleanup();
         exit(EXIT_FAILURE);
     }
@@ -252,7 +249,7 @@ void signal_action_handler() {
     sigact.sa_handler = &handler;
     sigemptyset(&sigact.sa_mask);
     if (sigaction(SIGINT, &sigact, NULL) != 0 || sigaction(SIGQUIT, &sigact, NULL) != 0 || sigaction(SIGTERM, &sigact, NULL) != 0) {
-        printf("Could not set up signal handlers!\n");
+        fprintf(stderr, "ehtlog: Could not set up signal handlers!\n");
         cleanup();
         exit(EXIT_FAILURE);
     }
@@ -280,7 +277,6 @@ void sniffing(ethlog_t *ethlog) {
     if (!ethlog->is_active)
         return;
 
-    serializer(ethlog);
 }
 
 void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffer) {
@@ -310,9 +306,8 @@ void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffe
 
 void *sniff_callback(void *data) {
     ethlog_t *ethlog = (ethlog_t *)data;
-    printf("hi\n");
+    printf("Start sniffing on selected interface: %s\n", ethlog->iface[ethlog->iface_current].iface_str);
     pcap_loop(ethlog->handler, -1, process, (u_char *)ethlog);
-    printf("Loop is zaloop\n");
     return NULL;
 }
 
@@ -356,26 +351,27 @@ int daemon_server() {
     // push_ip(some_if12, a1);
     // ============
 
-    // deserializer(&ethlog);
+    deserializer(&ethlog);
 
 
     while (run) {
-        sniffing(&ethlog);
         int ret = recvmsg(socket_fd, &msg, MSG_DONTWAIT);
         if (ret != sizeof(client_message)) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                printf("Error while accessing socket: %s\n", strerror(errno));
+                perror("ehtlog: Error while accessing socket");
                 exit(1);
             }
         } else {
             request_handler(&ethlog, client_message, &sniff_thread);
-            // printf("received client_arg=%s %d\n", client_message.buf, getpid());
         }
     }
-    printf("ehtlog: Daemon is terminated!\n");
+    serializer(&ethlog);
+    printf("ehtlog: Daemon ethlog is terminated!\n");
     pthread_mutex_destroy(&sniff_thread.mtx);
     pthread_cancel(sniff_thread.trd);
     pthread_join(sniff_thread.trd, NULL);
+    pcap_close(ethlog.handler);
+    serializer(&ethlog);
     cleanup();
     return EXIT_FAILURE;
 }
@@ -439,6 +435,14 @@ bool parse_args(int argc, char **argv) {
         }
         else if (strcmp(argv[0], "ifaces") == 0) {
             send_message(FLAG_IFACES, "");
+            return true;
+        }
+        else if (strcmp(argv[0], "stat") == 0) {
+            send_message(FLAG_STAT_ALL, "");
+            return true;
+        }
+        else if (strcmp(argv[0], "clear") == 0) {
+            send_message(FLAG_CLEAR, "");
             return true;
         }
         return false;
