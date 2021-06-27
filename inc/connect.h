@@ -1,7 +1,7 @@
 #ifndef CONNECT_H
 #define CONNECT_H
 
-#include "gen.h"
+#include "main.h"
 
 struct message_s {
     int fd;

@@ -1,7 +1,7 @@
 #ifndef DAEMON_H
 #define DAEMON_H
 
-#include "gen.h"
+#include "main.h"
 #include "ehtlog.h"
 #include "connect.h"
 

@@ -1,7 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "gen.h"
+#include "main.h"
 
 bool parse_args(int argc, char **argv);
 
