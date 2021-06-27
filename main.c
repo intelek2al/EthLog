@@ -100,19 +100,27 @@ int show_count(ethlog_t *ethlog, char *ip) {
 
 void *sniff_callback(void *data);
 void stop_sniff(ethlog_t *ethlog, thread_pack_t *thread);
+void start_sniff(ethlog_t *ethlog, thread_pack_t *thread);
 
 int select_iface(ethlog_t *ethlog, char *eth, thread_pack_t *thread) {
     stop_sniff(ethlog, thread);
     char errbuf[100];
 
-    ethlog->iface_current = search_iface(ethlog->iface, ethlog->iface_count, eth);
+    int new_ifc = search_iface(ethlog->iface, ethlog->iface_count, eth);
+    if (new_ifc == -1) {
+        fprintf(stderr, "Interface does not exist!\n");
+        return 1;
+    }
+
+    ethlog->iface_current = new_ifc;
+    pcap_close(ethlog->handler);
     ethlog->handler = pcap_open_live(ethlog->iface[ethlog->iface_current].iface_str, 65536, 1, 0, errbuf);
     if (ethlog->handler == NULL) 
 	{
 		fprintf(stderr, "Couldn't open device %s : %s\n" , eth , errbuf);
 		return 1;
 	}
-    pthread_create(&thread->trd, &thread->attr, sniff_callback, ethlog);
+    start_sniff(ethlog, thread);
 
     return 0;
 }
@@ -200,7 +208,6 @@ void send_message(int flag, char *arg) {
     }
     
 }
-
 
 // int main() {
 //     ethlog_t ethlog = construct_ethlog();

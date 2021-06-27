@@ -78,15 +78,6 @@ int search_iface(iface_t *arr, int size, char *iface_str) {
         if (strcmp(arr[i].iface_str, iface_str) == 0)
             return i;
     }
-    // if (r >= l) {
-    //     int mid = l + (r - l) / 2;
-    //     if (strcmp(arr[mid].iface_str, iface_str) == 0)
-    //         return mid;
-    //     if (strcmp(arr[mid].iface_str, iface_str) > 0)
-    //         return search_iface(arr, l, mid - 1, iface_str);
-    //     else
-    //         return search_iface(arr, mid + 1, r, iface_str);
-    // }
     return -1;
 }
 
