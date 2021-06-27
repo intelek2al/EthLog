@@ -1,53 +1,4 @@
-// // #include <stdio.h>
-// // #include <sys/types.h>
-// // #include <unistd.h>
-
-// // #include <sys/file.h>
-// // #include <errno.h>
-
-// // void mx_daemonizer() {
-// //     pid_t demon;
-// //     if (demon = fork() != 0 ) {
-// //         printf("Pid: %d\n", getpid() + 1);
-// //         exit(0);
-// //     }
-// //     umask(0);
-// //     setsid();
-// //     close(STDIN_FILENO);
-// //     close(STDOUT_FILENO);
-// //     close(STDERR_FILENO);
-// // }
-
-// // int main(int argc, char *argv[]) {
-// //     int pid_file = open("/var/run/ethlog.pid", O_CREAT | O_RDWR, 0666);
-
-// //     int rc = flock(pid_file, LOCK_EX | LOCK_NB);
-// //     if(rc) {
-// //         if(EWOULDBLOCK == errno) {
-// //             printf("H1\n");
-// //         }
-// //         else printf("H2\n");
-
-// //     }
-// //     else {
-// //         printf("H\n");
-// // }
-// //     return 0;
-// // }
-
 #include "ehtlog.h"
-
-#define SOCKET_NAME "/tmp/ethlog"
-
-#define DATA_ERROR -1
-#define FLAG_EXIT 0
-#define FLAG_START 1
-#define FLAG_STOP 2
-#define FLAG_SHOW 3
-#define FLAG_SELECT 4
-#define FLAG_STAT 5
-#define FLAG_IFACES 6
-
 
 bool check_regex(char *str, char *pattern) {
     regex_t regex;
@@ -71,16 +22,6 @@ struct message_s {
 static int socket_fd = -1;
 static bool isdaemon = false;
 static bool run = true;
-
-
-// void connect_to_client(int fd, char *name) {
-//     struct sockaddr_un addr = {0};
-
-//     addr.sun_family = AF_UNIX;
-//     strcpy(addr.sun_path, name);
-//     if (connect(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == 0)
-//         printf("Connection back is successful.\n");
-// }
 
 int singleton_connect(const char *name) {
 
@@ -299,8 +240,6 @@ void send_message(int flag, char *arg) {
 //     return 0;
 // }
 
-
-
 void signal_action_handler() {
     struct sigaction sigact;
     sigact.sa_handler = &handler;
@@ -337,44 +276,28 @@ void sniffing(ethlog_t *ethlog) {
     serializer(ethlog);
 }
 
-
-
 void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffer) {
     ethlog_t *ethlog = (ethlog_t *)user;
     iface_t *current_iface = &ethlog->iface[ethlog->iface_current];
-    // if (!run)
-    //     pcap_breakloop(ethlog->handler);
-    if (!ethlog->is_active)
+
+    if (ethlog->is_active == false) {
         return;
-    // if (!ethlog->is_active)
-    //     return;
-	
-	//Get the IP Header part of this packet , excluding the ethernet header
+    }
+
 	struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
     struct sockaddr_in source;
     memset(&source, 0, sizeof(source));
 	source.sin_addr.s_addr = iph->saddr;
     char *ip_str = inet_ntoa(source.sin_addr);
-    // pthread_mutex_lock(&ethlog->sniff_thread.mtx);
+
     int find_idx = search_ip_iface(current_iface, 0, current_iface->ip_count - 1, ip_str);
-    // for (int i = 0; i < current_iface->ip_count; i++) {
-    //     print_ip_stat(current_iface->ip[i]);
-    // }
-    // printf("==========\n\n");
-    // sleep(3);
+
     if (find_idx == -1) {
-        // printf("NEW %s\n", ip_str);
         ip_t ip = construct_ip(ip_str, 1);
         push_ip(current_iface, ip);
     } else {
-        // printf("EXIST %s\n", ip_str);
         ethlog->ip[find_idx].data_count++;
     }
-    // pthread_mutex_unlock(&ethlog->sniff_thread.mtx);
-
-    // printf("from %s", );
-	// ++total;
-	// printf("TCP : %d   UDP : %d   ICMP : %d   IGMP : %d   Others : %d   Total : %d\r", tcp , udp , icmp , igmp , others , total);
 
 }
 
@@ -470,48 +393,6 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
-
-// //  ***************** EXTRA ****************
-// char *strnew(const int size) {
-//     char *ptrVar = NULL;
-
-//     if (size >= 0) {
-//         if ((ptrVar = malloc((size + 1) * sizeof(char))) == NULL)
-//             return NULL;
-//         else  {        
-//             for (int i = 0; i <= size; i++) 
-//                 ptrVar[i] = '\0';            
-//         }
-//         return ptrVar;
-//     }
-//     return NULL;     
-// }
-
-// char *strdup(const char *s1) {
-//     char *arr = strnew(strlen(s1));
-
-//     for (int i = 0; i < strlen(s1); i++) {
-//         arr[i] = s1[i];
-//     }
-//     arr[strlen(s1)] = '\0';
-//     return arr;
-// }
-
-// char *strjoin(const char *s1, const char *s2) {
-//     char *result = NULL;
-
-//     if (!s1 && !s2) 
-//         return NULL;
-//     if (!s2) 
-//         return strdup(s1);
-//     if (!s1) 
-//         return strdup(s2);
-//     result = strcat(strcpy(strnew(strlen(s1) + strlen(s2)), s1), s2);
-//     return result;
-// }
-
-//  ***************** EXTRA ****************
-
 void print_usage() {
     fprintf(stderr, "Usage: ./ethlog [param 0] [param 1] ...\n\n");
     fprintf(stderr, "\tEnter \"./ethlog --help\" to get list of commands\n\n");
@@ -535,12 +416,10 @@ bool parse_args(int argc, char **argv) {
     case 1 : {
         if (strcmp(argv[0], "start") == 0) {
             send_message(FLAG_START, "");
-            // printf("Start!\n");
             return true;
         }
         else if (strcmp(argv[0], "stop") == 0) {
             send_message(FLAG_STOP, "");
-            // printf("Stop!\n");
             return true;
         }
         else if (strcmp(argv[0], "--help") == 0) {
@@ -549,7 +428,6 @@ bool parse_args(int argc, char **argv) {
         }
         else if (strcmp(argv[0], "exit") == 0) {
             send_message(FLAG_EXIT, "");
-            // printf("Stop!\n");
             return true;
         }
         else if (strcmp(argv[0], "ifaces") == 0) {
@@ -561,7 +439,6 @@ bool parse_args(int argc, char **argv) {
     
     case 2: {
         if (strcmp(argv[0], "stat") == 0) {
-            // printf("Showing status of %s!\n", argv[1]);
             send_message(FLAG_STAT, argv[1]);
             return true;
         }
@@ -571,7 +448,6 @@ bool parse_args(int argc, char **argv) {
     case 3: {
         if (strcmp(argv[0], "show") == 0 && strcmp(argv[2], "count") == 0) {
             if (check_regex(argv[1], ip_pattern)) {
-                // printf("Showing data of ip: %s\n", argv[1]);
                 send_message(FLAG_SHOW, argv[1]);
                 return true;
             }
