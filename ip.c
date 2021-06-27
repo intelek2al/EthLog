@@ -22,6 +22,10 @@ int ipcmp (const void *ip1, const void *ip2) {
     return strcmp(((const ip_t *)ip1)->ip_str, ((const ip_t *)ip2)->ip_str);
 }
 
+int ipcmpptr (const void *ip1, const void *ip2) {
+    return strcmp((*(const ip_t **)ip1)->ip_str, (*(const ip_t **)ip2)->ip_str);
+}
+
 void print_ip_stat(ip_t *ip) {
     if (ip)
         printf("\tIP \"%s\": %ld packet(s)\n", ip->ip_str, ip->data_count);

@@ -37,6 +37,9 @@ void push_ip(iface_t *iface, ip_t ip) {
     ethlog->ip[++(ethlog->ip_count) - 1] = ip;
     iface->ip[++iface->ip_count - 1] = &(ethlog->ip[ethlog->ip_count - 1]);
     qsort(ethlog->ip, ethlog->ip_count, sizeof(ip_t), ipcmp);
+    // printf("GI\n");
+    qsort(iface->ip, iface->ip_count, sizeof(ip_t *), ipcmpptr);
+    // printf("BI\n");
 }
 
 int search_ip(ip_t *arr, int l, int r, char *ip_str) {

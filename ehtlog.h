@@ -17,6 +17,8 @@ struct ethlog_s {
     
     pcap_t *handler;
     pcap_if_t *alldevsp;
+
+    // thread_pack_t sniff_thread;
 } typedef ethlog_t;
 
 struct sz_connector_s {

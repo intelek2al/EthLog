@@ -36,14 +36,6 @@
 // // }
 
 #include "ehtlog.h"
-#include <pthread.h>
-
-struct thread_pack_s {
-    pthread_t trd;
-    pthread_attr_t attr;
-    pthread_mutex_t mtx;
-} typedef thread_pack_t;
-
 
 #define SOCKET_NAME "/tmp/ethlog"
 
@@ -342,18 +334,10 @@ void sniffing(ethlog_t *ethlog) {
     if (!ethlog->is_active)
         return;
 
-    
-
     serializer(ethlog);
 }
 
-#include<sys/socket.h>
-#include<arpa/inet.h> // for inet_ntoa()
-#include<net/ethernet.h>
-#include<netinet/ip_icmp.h>	//Provides declarations for icmp header
-#include<netinet/udp.h>	//Provides declarations for udp header
-#include<netinet/tcp.h>	//Provides declarations for tcp header
-#include<netinet/ip.h>	//Provides declarations for ip header
+
 
 void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffer) {
     ethlog_t *ethlog = (ethlog_t *)user;
@@ -371,15 +355,22 @@ void process(u_char *user, const struct pcap_pkthdr *header, const u_char *buffe
     memset(&source, 0, sizeof(source));
 	source.sin_addr.s_addr = iph->saddr;
     char *ip_str = inet_ntoa(source.sin_addr);
+    // pthread_mutex_lock(&ethlog->sniff_thread.mtx);
     int find_idx = search_ip_iface(current_iface, 0, current_iface->ip_count - 1, ip_str);
+    // for (int i = 0; i < current_iface->ip_count; i++) {
+    //     print_ip_stat(current_iface->ip[i]);
+    // }
+    // printf("==========\n\n");
+    // sleep(3);
     if (find_idx == -1) {
         // printf("NEW %s\n", ip_str);
         ip_t ip = construct_ip(ip_str, 1);
         push_ip(current_iface, ip);
     } else {
-        // printf("EXIST\n");
+        // printf("EXIST %s\n", ip_str);
         ethlog->ip[find_idx].data_count++;
     }
+    // pthread_mutex_unlock(&ethlog->sniff_thread.mtx);
 
     // printf("from %s", );
 	// ++total;
@@ -413,26 +404,26 @@ int daemon_server() {
     pthread_attr_init(&sniff_thread.attr);
     pthread_mutex_init(&sniff_thread.mtx, NULL);
 
-    printf("%d\n", pcap_activate(ethlog.handler));
+    // printf("%d\n", pcap_activate(ethlog.handler));
     // pcap_loop(ethlog.handler, -1, process, (u_char *)(&ethlog));
     // Test
-    ip_t a = construct_ip("255.255.255.255", 5);
-    ip_t a1 = construct_ip("255.255.255.255", 6);
-    ip_t b = construct_ip("127.0.0.1", 165);
-    ip_t b1 = construct_ip("127.0.0.1", 16);
-    iface_t iface = construct_iface("eth0", 0, NULL, NULL, NULL);
-    iface_t *iface1 = push_iface(&ethlog, iface);
+    // ip_t a = construct_ip("255.255.255.255", 5);
+    // ip_t a1 = construct_ip("255.255.255.255", 6);
+    // ip_t b = construct_ip("127.0.0.1", 165);
+    // ip_t b1 = construct_ip("127.0.0.1", 16);
+    // iface_t iface = construct_iface("eth0", 0, NULL, NULL, NULL);
+    // iface_t *iface1 = push_iface(&ethlog, iface);
 
-    iface_t some_if = construct_iface("eth1", 0, NULL, NULL, NULL);
-    iface_t *some_if2 = push_iface(&ethlog, some_if);
+    // iface_t some_if = construct_iface("eth1", 0, NULL, NULL, NULL);
+    // iface_t *some_if2 = push_iface(&ethlog, some_if);
 
-    iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL, NULL);
-    iface_t *some_if12 = push_iface(&ethlog, some_if1);
-    push_ip(iface1, a);
-    push_ip(some_if2, a1);
-    push_ip(iface1, b);
-    push_ip(iface1, b1);
-    push_ip(some_if12, a1);
+    // iface_t some_if1 = construct_iface("eth2", 0, NULL, NULL, NULL);
+    // iface_t *some_if12 = push_iface(&ethlog, some_if1);
+    // push_ip(iface1, a);
+    // push_ip(some_if2, a1);
+    // push_ip(iface1, b);
+    // push_ip(iface1, b1);
+    // push_ip(some_if12, a1);
     // ============
 
     // deserializer(&ethlog);

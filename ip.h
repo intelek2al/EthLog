@@ -23,6 +23,7 @@ struct ip_s {
 ip_t construct_ip(char *ip_str, int data_count);
 
 int ipcmp (const void *ip1, const void *ip2);
+int ipcmpptr (const void *ip1, const void *ip2);
 
 void print_ip_stat(ip_t *ip);
 
