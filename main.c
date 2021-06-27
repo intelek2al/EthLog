@@ -351,7 +351,7 @@ int daemon_server() {
     // push_ip(some_if12, a1);
     // ============
 
-    // deserializer(&ethlog);
+    deserializer(&ethlog);
 
 
     while (run) {
@@ -371,6 +371,7 @@ int daemon_server() {
     pthread_cancel(sniff_thread.trd);
     pthread_join(sniff_thread.trd, NULL);
     pcap_close(ethlog.handler);
+    serializer(&ethlog);
     cleanup();
     return EXIT_FAILURE;
 }
@@ -434,6 +435,14 @@ bool parse_args(int argc, char **argv) {
         }
         else if (strcmp(argv[0], "ifaces") == 0) {
             send_message(FLAG_IFACES, "");
+            return true;
+        }
+        else if (strcmp(argv[0], "stat") == 0) {
+            send_message(FLAG_STAT_ALL, "");
+            return true;
+        }
+        else if (strcmp(argv[0], "clear") == 0) {
+            send_message(FLAG_CLEAR, "");
             return true;
         }
         return false;

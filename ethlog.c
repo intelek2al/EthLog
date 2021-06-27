@@ -125,7 +125,7 @@ void serializer(ethlog_t *ethlog) {
 ethlog_t *deserializer(ethlog_t *ethlog) {
     FILE *fd = fopen("/var/run/ethlog.dat", "rb");
     if (!fd) {
-        perror("ethlog");
+        // perror("ethlog");
         construct_ethlog(ethlog);
         return ethlog;
     }
